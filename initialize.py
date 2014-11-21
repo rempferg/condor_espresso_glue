@@ -18,35 +18,14 @@ density_salt = [ #0.0006022,
 box_l = [32, 64, 96, 108, 128]
 #box_l = [192, 160, 138, 128, 108, 96, 64, 32]
 
-#counterion density necessary to neutralize the system
-density_counterions = [ 0.00030776902,
-                        0.00003818318,
-                        0.000011305028,
-                        0.0000079391344,
-                        0.0000047684360,
-                      ]
-#                        0.0000038050195,
-#                        0.0000024412801,
-#                        0.0000014127372
-#                      ]
-#density_counterions = [ 0.0000014127372,
-#                        0.0000024412801,
-#                        0.0000038050195,
-#                        0.0000047684360,
-#                        0.0000079391344,
-#                        0.000011305028,
-#                        0.00003818318,
-#                        0.00030776902
-#                      ]
-
-#ext_force = [ 0.3162, 0.01, 0.03162, 0.1, 0.0, 1.0]
+#ext_force = [0.3162, 0.01, 0.03162, 0.1, 0.0, 1.0]
 ext_force = [0.01]
 
 dt = 0.2
 use_nonlinear_stencil = 0
 
 #997.0751 kg/m^3 = 26.1151 (Wikipedia, water at 25 deg celcius)
-density_solution = [26.1151, 33.37, 10.0]
+density_solution = [26.1151]
 
 #for KCl in water: D = 1.33e-9 m^2/s (Christian, Stefan), eta = 1.002 mPa*s (Wikipedia, water at 20 deg celcius)
 #D * eta needs to be matched with experiments to get right ratio of convective to diffusive transport
@@ -81,7 +60,6 @@ sql = 'CREATE TABLE IF NOT EXISTS parameters(\
  end_time text,\
  density_salt FLOAT,\
  box_l FLOAT,\
- density_counterions FLOAT,\
  ext_force FLOAT,\
  dt FLOAT,\
  use_nonlinear_stencil int,\
@@ -106,11 +84,11 @@ sql = 'CREATE TABLE IF NOT EXISTS observables(\
 db.execute(sql)
 
 for c in density_salt:
-  for i in range(len(box_l)):
+  for l in box_l:
     for f in ext_force:
       for d in density_solution:
-        if len(db.execute('SELECT id FROM parameters where density_salt = ? and box_l = ? and density_counterions = ? and ext_force = ? and dt = ? and use_nonlinear_stencil = ? and density_solution = ? and D_pos = ? and D_neg = ? and viscosity = ? and charge_density = ? and sphere_radius = ?', (c, box_l[i], density_counterions[i], f, dt, use_nonlinear_stencil, d, D_pos, D_neg, viscosity, charge_density, sphere_radius)).fetchall()) == 0:
-          db.execute('INSERT INTO parameters(id, status, host, start_time, end_time, density_salt, box_l, density_counterions, ext_force, dt, use_nonlinear_stencil, density_solution, D_pos, D_neg, viscosity, charge_density, sphere_radius) VALUES(NULL, \'waiting\', NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (c, box_l[i], density_counterions[i], f, dt, use_nonlinear_stencil, d, D_pos, D_neg, viscosity, charge_density, sphere_radius))
+        if len(db.execute('SELECT id FROM parameters where density_salt = ? and box_l = ? and ext_force = ? and dt = ? and use_nonlinear_stencil = ? and density_solution = ? and D_pos = ? and D_neg = ? and viscosity = ? and charge_density = ? and sphere_radius = ?', (c, l, f, dt, use_nonlinear_stencil, d, D_pos, D_neg, viscosity, charge_density, sphere_radius)).fetchall()) == 0:
+          db.execute('INSERT INTO parameters(id, status, host, start_time, end_time, density_salt, box_l, ext_force, dt, use_nonlinear_stencil, density_solution, D_pos, D_neg, viscosity, charge_density, sphere_radius) VALUES(NULL, \'waiting\', NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (c, l, f, dt, use_nonlinear_stencil, d, D_pos, D_neg, viscosity, charge_density, sphere_radius))
 
 db.commit()
 db.close()
