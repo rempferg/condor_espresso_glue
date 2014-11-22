@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
-import time
+import numpy as np
 import os
 import platform
+import scipy.optimize
 import shutil
 import sqlite3
 import subprocess
 import sys
+import time
 
 espresso = 'Espresso'
 script = 'sphere_electrophoresis_3.tcl'
@@ -56,21 +58,37 @@ while parameters != None:
   if status_cur.rowcount != 0:
     p = subprocess.Popen([espresso, script, str(parameters[0])])
     
+    popt = None
+
     while True:
       if(p.returncode is None): #running
-        vx = query('SELECT vx_corner FROM observables WHERE parameters_id = ? ORDER BY t DESC LIMIT 0,1', (parameters[0],)).fetchone()
+        vx = query('SELECT t, vx_corner FROM observables WHERE parameters_id = ? ORDER BY t', (parameters[0],)).fetchall()
 
-        if vx is None:
+        if not vx:
           continue
 
-        vx = vx[0]
+        vx = np.array(vx).T
 
-        print 'vx =', vx, '>?', 0.0005
+        if len(vx[0]) >= 2:
+          if popt is None:
+            popt = [vx[1][-1], 1.0/vx[0][-1]]
+
+          try:
+            popt, pcov = scipy.optimize.curve_fit(lambda t,a,b: a*(1.0-np.exp(-b*t)), vx[0], vx[1], popt)
+          except Exception as e:
+            popt = [vx[1][-1], 1.0/vx[0][-1]]
+            print str(e)
+          else:
+            print 'vx=' + str(vx[1][-1]), 'vx_inf=' + str(popt[0]) + '+-' + str(np.sqrt(np.diag(pcov))[0]), 'err=' + str((vx[1][-1]-popt[0])/vx[1][-1]) + '=' + str(abs(vx[1][-1]-popt[0])/np.sqrt(np.diag(pcov))[0]) + 's'
+          
+        time.sleep(30)
+        continue
 
         if(vx > 0.0005):
           print 'yes'
           query('UPDATE parameters SET status = ?, end_time = ? WHERE id = ?', ('done', time.strftime('%Y-%m-%d %H:%M:%S'), parameters[0]))
           p.terminate()
+          p.wait()
           break
         else:
           print 'no'

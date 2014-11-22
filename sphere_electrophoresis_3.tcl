@@ -4,6 +4,7 @@ package require Tclx
 proc cleanup {} {
   global sigterm
   set sigterm 1
+  puts "received SIGTERM"
 }
 
 set sigterm 0
@@ -113,7 +114,6 @@ for {set i 1} {1} {incr i} {
   }
 
   if {$sigterm} {
-    puts "received SIGTERM"
     exit 1001
   }
 
