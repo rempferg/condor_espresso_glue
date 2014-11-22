@@ -58,6 +58,10 @@ sql = 'CREATE TABLE IF NOT EXISTS parameters(\
  host varchar,\
  start_time text,\
  end_time text,\
+ vx FLOAT,\
+ vx_err FLOAT,\
+ vx_fit FLOAT,\
+ vx_fit_stderr FLOAT,\
  density_salt FLOAT,\
  box_l FLOAT,\
  ext_force FLOAT,\

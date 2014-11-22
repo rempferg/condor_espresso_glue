@@ -79,21 +79,27 @@ while parameters != None:
             popt = [vx[1][-1], 1.0/vx[0][-1]]
             print str(e)
           else:
-            print 'vx=' + str(vx[1][-1]), 'vx_inf=' + str(popt[0]) + '+-' + str(np.sqrt(np.diag(pcov))[0]), 'err=' + str((vx[1][-1]-popt[0])/vx[1][-1]) + '=' + str(abs(vx[1][-1]-popt[0])/np.sqrt(np.diag(pcov))[0]) + 's'
+            popt_stderr = np.sqrt(np.diag(pcov))
+            vx_abserr = vx[1][-1]-popt[0]
+            vx_relerr = vx_abserr / vx[1][-1]
+
+            print
+            print 'vx=' + str(vx[1][-1])
+            print 'vx_inf=' + str(popt[0]) + '+-' + str(popt_stderr[0])
+            print 'relerr=' + str(vx_relerr)
+            print 'sigma=' + str(popt_stderr[0])
+            print '0.01*vx=' + str(0.01*vx[1][-1]) + '=' + str(abs(0.01*vx[1][-1])/popt_stderr[0]) + 's'
+
+            if abs(vx_relerr) <= 0.01 and 3.0*popt_stderr[0] < abs(0.01*vx[1][-1]):
+              print 'vx_relerr=' + str(vx_relerr) + '<0.01 3.0*popt_stderr=' + str(3.0*popt_stderr[0]) + '<' + str(abs(0.01*vx[1][-1])) + '=abs(0.01*vx)'
+              query('UPDATE parameters SET status = ?, end_time = ?, vx = ?, vx_err = ?, vx_fit = ?, vx_fit_stderr = ? WHERE id = ?', ('done', time.strftime('%Y-%m-%d %H:%M:%S'), vx[1][-1], vx_abserr, popt[0], popt_stderr[0], parameters[0]))
+              p.terminate()
+              p.wait()
+              break
           
         time.sleep(30)
         continue
 
-        if(vx > 0.0005):
-          print 'yes'
-          query('UPDATE parameters SET status = ?, end_time = ? WHERE id = ?', ('done', time.strftime('%Y-%m-%d %H:%M:%S'), parameters[0]))
-          p.terminate()
-          p.wait()
-          break
-        else:
-          print 'no'
-          time.sleep(30)
-          continue
       elif(p.returncode == 1001): #sigterm
           query('UPDATE parameters SET set status = ?, end_time = ? WHERE id = ?', ('killed', time.strftime('%Y-%m-%d %H:%M:%S'), parameters[0]))
           break
