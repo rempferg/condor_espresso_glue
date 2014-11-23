@@ -13,8 +13,8 @@ import time
 espresso = 'Espresso'
 script = 'sphere_electrophoresis_3.tcl'
 
-os.environ['PATH'] = '/home/georg/bin:/home/georg/usr/bin:/usr/local/cuda/bin:/home/georg/bin:/home/georg/usr/bin:/usr/local/cuda/bin:/usr/lib64/mpi/gcc/openmpi/bin:/home/georg/bin:/usr/local/bin:/usr/bin:/bin:/usr/bin/X11:/usr/X11R6/bin:/usr/games:/opt/kde3/bin:/usr/lib/mit/bin:/usr/lib/mit/sbin'
-os.environ['LD_LIBRARY_PATH'] = '/usr/lib64/mpi/gcc/openmpi/lib64:/home/georg/usr/lib64:/opt/google/chrome:/usr/local/cuda/lib64:/home/georg/usr/lib64:/opt/google/chrome:/usr/local/cuda/lib64'
+os.environ['PATH'] = '/home/georg/tcl8.6.2/bin:/home/georg/bin:/home/georg/usr/bin:/usr/local/cuda/bin:/usr/bin:/usr/lib64/mpi/gcc/openmpi/bin:/home/georg/bin:/usr/local/bin:/usr/bin:/bin:/usr/bin/X11:/usr/X11R6/bin:/usr/games:/opt/kde3/bin:/usr/lib/mit/bin:/usr/lib/mit/sbin'
+os.environ['LD_LIBRARY_PATH'] = '/home/georg/tcl8.6.2/lib:/usr/lib64/mpi/gcc/openmpi/lib64:/home/georg/usr/lib64:/opt/google/chrome:/usr/local/cuda/lib64'
 
 if len(sys.argv) != 2:
   print 'No simulation directory specified'
@@ -27,6 +27,25 @@ if not os.path.isdir(simulation_dir):
   exit(1)
 else:
   os.chdir(simulation_dir)
+
+cuda_fail = subprocess.call(['nvidia-smi'])
+lock_fail = subprocess.call(['flock', platform.uname()[1], '-c', 'echo'])
+os.remove(platform.uname()[1])
+
+if cuda_fail != 0 or lock_fail != 0:
+  if not os.path.isdir('failures'):
+    os.mkdir('failures')
+
+  if cuda_fail != 0:
+    with open("failures/%s_cuda" % (platform.uname()[1],), 'a') as f:
+      f.write(time.strftime("%Y-%m-%d %H:%M:%S") + '\n')
+
+  if lock_fail != 0:
+    with open("failures/%s_lock" % (platform.uname()[1],), 'a') as f:
+      f.write(time.strftime("%Y-%m-%d %H:%M:%S") + '\n')
+
+  time.sleep(180)
+  exit(1)
 
 if not os.path.isfile(script):
   shutil.copy('../' + script, './' + script)
@@ -50,7 +69,7 @@ def query(sql, parameters=()):
 
   return ret
 
-parameters = db.execute('SELECT * FROM parameters WHERE status = "waiting" ORDER BY id ASC LIMIT 0,1').fetchone()
+parameters = query('SELECT * FROM parameters WHERE status = "waiting" ORDER BY id ASC LIMIT 0,1').fetchone()
 
 while parameters != None:
   status_cur = query('UPDATE parameters SET status = "running", host = ?, start_time = ? WHERE id = ? and status = "waiting"', (platform.uname()[1], time.strftime('%Y-%m-%d %H:%M:%S'), parameters[0]))
