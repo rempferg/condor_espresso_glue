@@ -11,7 +11,7 @@ import sys
 import time
 
 espresso = 'Espresso'
-script = 'sphere_electrophoresis_3.tcl'
+script = 'sphere_electrophoresis_4.tcl'
 
 os.environ['PATH'] = '/home/georg/tcl8.6.2/bin:/home/georg/bin:/home/georg/usr/bin:/usr/local/cuda/bin:/usr/bin:/usr/lib64/mpi/gcc/openmpi/bin:/home/georg/bin:/usr/local/bin:/usr/bin:/bin:/usr/bin/X11:/usr/X11R6/bin:/usr/games:/opt/kde3/bin:/usr/lib/mit/bin:/usr/lib/mit/sbin'
 os.environ['LD_LIBRARY_PATH'] = '/home/georg/tcl8.6.2/lib:/usr/lib64/mpi/gcc/openmpi/lib64:/home/georg/usr/lib64:/opt/google/chrome:/usr/local/cuda/lib64'
@@ -81,7 +81,7 @@ while parameters != None:
 
     while True:
       if(p.returncode is None): #running
-        vx = query('SELECT t, vx_corner FROM observables WHERE parameters_id = ? ORDER BY t', (parameters[0],)).fetchall()
+        vx = query('SELECT t, vx_corner FROM observables, parameters WHERE parameters_id = id and parameters_id = ? and t*t >= box_l*box_l/(72*3.141592654*bjerrum_length*density_salt*min(D_pos,D_neg)*min(D_pos,D_neg)) ORDER BY t', (parameters[0],)).fetchall()
 
         if not vx:
           continue
@@ -98,7 +98,11 @@ while parameters != None:
             popt = [vx[1][-1], 1.0/vx[0][-1]]
             print str(e)
           else:
-            popt_stderr = np.sqrt(np.diag(pcov))
+            if pcov is np.inf:
+              popt_stderr = [np.inf, np.inf]
+            else:
+              popt_stderr = np.sqrt(np.diag(pcov))
+
             vx_abserr = vx[1][-1]-popt[0]
             vx_relerr = vx_abserr / vx[1][-1]
 

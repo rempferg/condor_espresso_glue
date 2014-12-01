@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-import sqlite3
-import time
+import numpy as np
 import os
+import sqlite3
 import sys
+import time
 
 #molarity given in experiments applies to both species individually
 #0.006022 particles/nm^3 = 10 mmol/liter (Nadanai Laohakunakorn)
@@ -15,27 +16,30 @@ density_salt = [ #0.0006022,
                  #0.1904
                ]
 
-box_l = [16, 32, 48, 64, 80, 96, 108, 128]
-#box_l = [192, 160, 138, 128, 108, 96, 64, 32]
+box_l = [16, 20, 24, 32, 40, 48, 64]
 
 #ext_force = [0.3162, 0.01, 0.03162, 0.1, 0.0, 1.0]
 ext_force = [0.01]
 
+agrid = 0.25
 dt = 0.2
 use_nonlinear_stencil = 0
 
 #997.0751 kg/m^3 = 26.1151 (Wikipedia, water at 25 deg celcius)
 density_solution = [26.1151]
+bjerrum_length = 0.7095
 
 #for KCl in water: D = 1.33e-9 m^2/s (Christian, Stefan), eta = 1.002 mPa*s (Wikipedia, water at 20 deg celcius)
 #D * eta needs to be matched with experiments to get right ratio of convective to diffusive transport
-D_pos = 0.3224
-D_neg = 0.3224
+D_pos = 0.00403896 
+D_neg = 0.00403896
 
-viscosity = 1.0 #rescaled from 79.76 = 1.002 mPa*s
+viscosity_dynamic = 79.6984
+viscosity_kinematic = [round(viscosity_dynamic / dens , 4) for dens in density_solution]
+scaling_factor = 1.0 * np.ones(len(density_solution))
 
-#10e on a sphere covering 56 lattice nodes
-charge_density = -0.03571
+#sphere
+charge = -10
 sphere_radius = 4
 
 #determine simulation directory and create if necessary
@@ -62,6 +66,7 @@ sql = 'CREATE TABLE IF NOT EXISTS parameters(\
  vx_err FLOAT,\
  vx_fit FLOAT,\
  vx_fit_stderr FLOAT,\
+ agrid FLOAT,\
  density_salt FLOAT,\
  box_l FLOAT,\
  ext_force FLOAT,\
@@ -70,9 +75,11 @@ sql = 'CREATE TABLE IF NOT EXISTS parameters(\
  density_solution FLOAT,\
  D_pos FLOAT,\
  D_neg FLOAT,\
- viscosity FLOAT,\
- charge_density FLOAT,\
- sphere_radius FLOAT\
+ viscosity_kinematic FLOAT,\
+ charge FLOAT,\
+ sphere_radius FLOAT,\
+ bjerrum_length FLOAT,\
+ scaling_factor FLOAT\
  )'
 
 db.execute(sql)
@@ -90,9 +97,9 @@ db.execute(sql)
 for c in density_salt:
   for l in box_l:
     for f in ext_force:
-      for d in density_solution:
-        if len(db.execute('SELECT id FROM parameters where density_salt = ? and box_l = ? and ext_force = ? and dt = ? and use_nonlinear_stencil = ? and density_solution = ? and D_pos = ? and D_neg = ? and viscosity = ? and charge_density = ? and sphere_radius = ?', (c, l, f, dt, use_nonlinear_stencil, d, D_pos, D_neg, viscosity, charge_density, sphere_radius)).fetchall()) == 0:
-          db.execute('INSERT INTO parameters(id, status, host, start_time, end_time, density_salt, box_l, ext_force, dt, use_nonlinear_stencil, density_solution, D_pos, D_neg, viscosity, charge_density, sphere_radius) VALUES(NULL, \'waiting\', NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (c, l, f, dt, use_nonlinear_stencil, d, D_pos, D_neg, viscosity, charge_density, sphere_radius))
+      for i in range(len(density_solution)):
+        if len(db.execute('SELECT id FROM parameters where agrid = ? and density_salt = ? and box_l = ? and ext_force = ? and dt = ? and use_nonlinear_stencil = ? and density_solution = ? and D_pos = ? and D_neg = ? and viscosity_kinematic = ? and charge = ? and sphere_radius = ? and bjerrum_length = ? and scaling_factor = ?', (agrid, c, l, f, dt, use_nonlinear_stencil, density_solution[i], D_pos, D_neg, viscosity_kinematic[i], charge, sphere_radius, bjerrum_length, scaling_factor[i])).fetchall()) == 0:
+          db.execute('INSERT INTO parameters(id, status, host, start_time, end_time, agrid, density_salt, box_l, ext_force, dt, use_nonlinear_stencil, density_solution, D_pos, D_neg, viscosity_kinematic, charge, sphere_radius, bjerrum_length, scaling_factor) VALUES(NULL, \'waiting\', NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (agrid, c, l, f, dt, use_nonlinear_stencil, density_solution[i], D_pos, D_neg, viscosity_kinematic[i], charge, sphere_radius, bjerrum_length, scaling_factor[i]))
 
 db.commit()
 db.close()

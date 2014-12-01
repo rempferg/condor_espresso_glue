@@ -10,8 +10,15 @@ proc cleanup {} {
 set sigterm 0
 signal trap SIGTERM cleanup
 
+set db_collisions 0
+
 proc db_locked {something} {
-  puts "database locked"
+  incr db_collisions
+
+  if {$db_collisions % 100 == 0} {
+    puts "$db_collisions database collsions"
+  }
+
   return 0 ;#0=retry, 1=abandon
 }
 
@@ -40,33 +47,39 @@ if {![file isdirectory "$output_folder"]} {
   exit 1000
 }
 
+puts "agrid $agrid"
 puts "density_salt $density_salt"
-puts "ext_force $ext_force"
 puts "box_l $box_l"
+puts "ext_force $ext_force"
 puts "dt $dt"
-puts "sphere_radius $sphere_radius"
-puts "charge_density $charge_density"
+puts "use_nonlinear_stencil $use_nonlinear_stencil"
 puts "density_solution $density_solution"
 puts "D_pos $D_pos"
 puts "D_neg $D_neg"
-puts "viscosity $viscosity"
-puts "use_nonlinear_stencil $use_nonlinear_stencil"
+puts "viscosity_kinematic $viscosity_kinematic"
+puts "charge $charge"
+puts "sphere_radius $sphere_radius"
+puts "bjerrum_length $bjerrum_length"
+puts "scaling_factor $scaling_factor"
 puts ""
 
-set viscosity_kinematic [expr $viscosity/$density_solution]
-
+set viscosity_kinematic_scaled [expr $viscosity_kinematic / $scaling_factor]
+set D_pos_scaled [expr $D_pos * $scaling_factor]
+set D_neg_scaled [expr $D_neg * $scaling_factor]
+puts "viscosity_kinematic_scaled $viscosity_kinematic_scaled"
+puts "D_pos_scaled $D_pos_scaled"
+puts "D_neg_scaled $D_neg_scaled"
+puts ""
 
 setmd box_l $box_l $box_l $box_l
 setmd time_step $dt
+setmd skin 0.1
 
-electrokinetics agrid 1 lb_density $density_solution viscosity $viscosity_kinematic friction 1.0 T 1 bjerrum_length 0.7095 use_nonlinear_stencil $use_nonlinear_stencil
+electrokinetics agrid $agrid lb_density $density_solution viscosity $viscosity_kinematic_scaled friction 1.0 T 1 bjerrum_length $bjerrum_length use_nonlinear_stencil $use_nonlinear_stencil
 
-puts "density_pos=[expr $density_salt]"
-puts "density_neg=[expr $density_salt]"
-
-electrokinetics 2 density $density_salt D $D_neg valency -1.0 ext_force [expr -1.0*$ext_force] 0.0 0.0
-electrokinetics 1 density $density_salt D $D_pos valency 1.0 ext_force [expr $ext_force] 0.0 0.0
-electrokinetics boundary charge_density $charge_density sphere center [expr $box_l / 2.] [expr $box_l / 2.] [expr $box_l / 2.] radius $sphere_radius direction outside
+electrokinetics 2 density $density_salt D $D_neg_scaled valency -1.0 ext_force [expr -1.0*$ext_force] 0.0 0.0
+electrokinetics 1 density $density_salt D $D_pos_scaled valency 1.0 ext_force [expr $ext_force] 0.0 0.0
+electrokinetics boundary net_charge $charge sphere center [expr $box_l / 2.] [expr $box_l / 2.] [expr $box_l / 2.] radius $sphere_radius direction outside
 electrokinetics 1 neutralize_system
 
 set runtime_start [clock seconds]
@@ -93,16 +106,15 @@ for {set i 1} {1} {incr i} {
   #electrokinetics print lbforce vtk "$output_folder/lbforce.vtk"
   electrokinetics print potential vtk "$output_folder/potential.vtk"
   
-  set vx_corner [lindex [electrokinetics node 0 0 0 print velocity] 0]
-  set runtime [expr [clock seconds]-$runtime_start]
-  #puts "runtime=$runtime"
-  db eval {INSERT INTO observables(parameters_id, t, vx_corner, vx_slice, runtime) values($id, $t, $vx_corner, NULL, $runtime)}
-
   if {[catch {exec grep -i -q nan "$output_folder/density_pos.vtk" "$output_folder/density_neg.vtk" "$output_folder/velocity.vtk"}] != 1} {
     puts "grep found NAN or failed"
     exit 1002
   }
   
+  set vx_corner [expr [lindex [electrokinetics node 0 0 0 print velocity] 0] / $scaling_factor]
+  set runtime [expr [clock seconds]-$runtime_start]
+  db eval {INSERT INTO observables(parameters_id, t, vx_corner, vx_slice, runtime) values($id, $t, $vx_corner, NULL, $runtime)}
+
   if {$t1-$t0 > 0} {
     set framelength [expr int(ceil(double($seconds_per_increment) / ($t1-$t0) * $framelength))]
   } else {
