@@ -1,9 +1,9 @@
 universe = vanilla
 executable = run.py
-arguments = new
+arguments = pago_saltfree_fss
 initialdir = /home/georg/work/pagonabarraga_simulations
 error = /home/georg/work/pagonabarraga_simulations/condor_error.txt
 log = /home/georg/work/pagonabarraga_simulations/condor_log.txt
 output = /home/georg/work/pagonabarraga_simulations/condor_output.txt
 requirements = HAS_GPU
-queue 21
+queue 7

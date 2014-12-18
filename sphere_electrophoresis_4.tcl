@@ -99,11 +99,11 @@ for {set i 1} {1} {incr i} {
   incr step_count $framelength
   
   electrokinetics 1 print density vtk "$output_folder/density_pos.vtk"
-  #electrokinetics 1 print flux vtk "$output_folder/flux_pos.vtk"
+  electrokinetics 1 print flux vtk "$output_folder/flux_pos.vtk"
   electrokinetics 2 print density vtk "$output_folder/density_neg.vtk"
-  #electrokinetics 2 print flux vtk "$output_folder/flux_neg.vtk"
+  electrokinetics 2 print flux vtk "$output_folder/flux_neg.vtk"
   electrokinetics print velocity vtk "$output_folder/velocity.vtk"
-  #electrokinetics print lbforce vtk "$output_folder/lbforce.vtk"
+  electrokinetics print lbforce vtk "$output_folder/lbforce.vtk"
   electrokinetics print potential vtk "$output_folder/potential.vtk"
   
   if {[catch {exec grep -i -q nan "$output_folder/density_pos.vtk" "$output_folder/density_neg.vtk" "$output_folder/velocity.vtk"}] != 1} {
